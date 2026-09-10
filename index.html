@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Giao việc giữa các bộ phận (Test)</title>
+<!-- Dùng để đọc và hiển thị trước nội dung file Excel (.xlsx/.xls) ngay trong popup, không cần tải về -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root {
+    --navy: #16324F;
+    --navy-2: #1F4E78;
+    --paper: #F6F7F9;
+    --panel: #FFFFFF;
+    --line: #DDE3EA;
+    --ink: #1B2430;
+    --ink-soft: #5B6673;
+    --ok: #2F7A4F;
+    --warn: #C97A2B;
+    --danger: #B54545;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--paper);
+    color: var(--ink);
+    margin: 0;
+    padding: 24px;
+  }
+  h1 { color: var(--navy); font-size: 22px; margin: 0 0 4px; }
+  .sub { color: var(--ink-soft); font-size: 13px; margin: 0 0 24px; }
+  .layout { display: grid; grid-template-columns: 280px 1fr; gap: 20px; align-items: start; }
+  @media (max-width: 860px) { .layout { grid-template-columns: 1fr; } }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 18px;
+  }
+  .panel h2 { font-size: 15px; color: var(--navy); margin: 0 0 12px; }
+  input, select, textarea {
+    width: 100%;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-size: 13px;
+    background: #F9FAFC;
+    font-family: inherit;
+  }
+  textarea { resize: vertical; min-height: 60px; }
+  label { display: block; font-size: 12px; font-weight: 600; color: var(--navy); margin: 12px 0 6px; }
+  label:first-of-type { margin-top: 0; }
+  button {
+    cursor: pointer;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    font-family: inherit;
+  }
+  .btn-primary { background: var(--navy-2); color: #fff; }
+  .btn-primary:hover { background: var(--navy); }
+  .btn-danger { background: var(--danger); color: #fff; }
+  .btn-ghost { background: transparent; color: var(--ink-soft); border: 1px solid var(--line); }
+  .dept-row { display: flex; align-items: center; gap: 6px; padding: 6px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
+  .dept-row span { flex: 1; }
+  .dept-row button { padding: 3px 8px; font-size: 11px; }
+  .task-toolbar { display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; align-items: center; }
+  .task-toolbar select { width: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--line); }
+  th { color: var(--navy); font-size: 12px; text-transform: uppercase; letter-spacing: .3px; }
+  .badge { display: inline-block; padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 700; }
+  .badge-new { background: #EAF1FB; color: #1F4E78; }
+  .badge-accepted { background: #EAF6F0; color: var(--ok); }
+  .badge-in_progress { background: #FBF2E3; color: var(--warn); }
+  .badge-done { background: #E6F4EA; color: #1B7A3D; }
+  .badge-overdue { background: #FBEAEA; color: var(--danger); }
+  .badge-rejected { background: #F0F0F0; color: #666; }
+  .priority-high { color: var(--danger); font-weight: 700; }
+  .priority-normal { color: var(--ink-soft); }
+  .priority-low { color: #8A97A6; }
+  .empty { text-align: center; color: var(--ink-soft); padding: 30px 0; font-size: 13px; }
+  .row-actions { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; min-width: 120px; }
+  .row-actions button { padding: 5px 10px; font-size: 11.5px; width: 100%; text-align: left; }
+  .err { color: var(--danger); font-size: 12px; margin-top: 8px; min-height: 16px; }
+
+  .modal-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(27, 36, 48, 0.55);
+    z-index: 1000;
+    align-items: center; justify-content: center;
+  }
+  .modal-overlay.active { display: flex; }
+  .modal-card {
+    background: var(--panel);
+    border-radius: 10px;
+    padding: 24px;
+    width: 100%;
+    max-width: 440px;
+    max-height: 85vh;
+    overflow-y: auto;
+  }
+  .modal-card h3 { margin: 0 0 4px; color: var(--navy); font-size: 17px; }
+  .modal-meta { font-size: 12px; color: var(--ink-soft); margin-bottom: 16px; }
+  .modal-desc-label { font-size: 12px; font-weight: 700; color: var(--navy); margin-bottom: 6px; }
+  .modal-desc-box {
+    background: #F5F8FB;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 12px;
+    font-size: 13px;
+    white-space: pre-wrap;
+    min-height: 50px;
+    margin-bottom: 16px;
+  }
+  .modal-info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 12.5px; margin-bottom: 20px; }
+  .modal-info-grid div span { display: block; color: var(--ink-soft); font-size: 11px; }
+  .modal-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+</style>
+</head>
+<body>
+
+  <h1>🗂️ Giao việc giữa các bộ phận <span style="font-size:12px; color:var(--warn); font-weight:600;">(App test — chưa liên kết HUB & MG / GASKET)</span></h1>
+  <p class="sub">Tạo và theo dõi công việc giao cho 1 người hoặc 1 bộ phận. Chạy độc lập để test trước khi tích hợp.</p>
+
+  <div class="layout">
+    <!-- CỘT TRÁI: Quản lý bộ phận -->
+    <div class="panel">
+      <h2>Bộ phận</h2>
+      <div id="deptList"></div>
+      <label>Thêm bộ phận mới</label>
+      <div style="display:flex; gap:6px;">
+        <input type="text" id="newDeptName" placeholder="Tên bộ phận">
+        <button class="btn-primary" id="addDeptBtn">+</button>
+      </div>
+      <div class="err" id="deptErr"></div>
+    </div>
+
+    <!-- CỘT PHẢI: Giao việc -->
+    <div class="panel">
+      <h2>+ Giao việc mới</h2>
+      <label>Tiêu đề</label>
+      <input type="text" id="taskTitle" placeholder="VD: Kiểm tra tồn kho khuôn ABC">
+      <label>Mô tả</label>
+      <textarea id="taskDesc" placeholder="Chi tiết công việc..."></textarea>
+      <label>Giao cho</label>
+      <div style="display:flex; gap:10px; margin-bottom:8px; font-size:13px;">
+        <label style="display:flex; align-items:center; gap:4px; margin:0; font-weight:400;">
+          <input type="radio" name="assigneeType" value="person" checked style="width:auto;"> Người cụ thể
+        </label>
+        <label style="display:flex; align-items:center; gap:4px; margin:0; font-weight:400;">
+          <input type="radio" name="assigneeType" value="department" style="width:auto;"> Bộ phận
+        </label>
+      </div>
+      <input type="text" id="assigneePerson" placeholder="Tên người nhận việc">
+      <select id="assigneeDept" style="display:none;"></select>
+
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+        <div>
+          <label>Ưu tiên</label>
+          <select id="taskPriority">
+            <option value="low">Thấp</option>
+            <option value="normal" selected>Bình thường</option>
+            <option value="high">Cao</option>
+          </select>
+        </div>
+        <div>
+          <label>Hạn xử lý</label>
+          <input type="date" id="taskDeadline">
+        </div>
+      </div>
+      <label>Người giao việc</label>
+      <input type="text" id="taskCreatedBy" placeholder="Tên bạn">
+
+      <label>Liên kết tham khảo (mỗi dòng 1 link, không bắt buộc)</label>
+      <textarea id="taskLinks" placeholder="https://..." style="min-height:44px;"></textarea>
+
+      <label>File đính kèm (không bắt buộc, tối đa 15MB/file)</label>
+      <input type="file" id="taskFiles" multiple>
+
+      <div style="margin-top:16px;">
+        <button class="btn-primary" id="createTaskBtn">Giao việc</button>
+      </div>
+      <div class="err" id="taskErr"></div>
+
+      <hr style="border:none; border-top:1px solid var(--line); margin:22px 0;">
+
+      <h2>Danh sách công việc</h2>
+      <div class="task-toolbar">
+        <select id="filterStatus">
+          <option value="">Tất cả trạng thái</option>
+          <option value="new">Mới giao</option>
+          <option value="accepted">Đã nhận</option>
+          <option value="in_progress">Đang xử lý</option>
+          <option value="done">Hoàn thành</option>
+          <option value="overdue">Quá hạn</option>
+          <option value="rejected">Từ chối</option>
+        </select>
+        <button class="btn-ghost" id="refreshBtn">🔄 Làm mới</button>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Tiêu đề</th>
+            <th>Giao cho</th>
+            <th>Ưu tiên</th>
+            <th>Thời gian</th>
+            <th>Trạng thái</th>
+            <th>Hành động</th>
+          </tr>
+        </thead>
+        <tbody id="taskTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+<script>
+  const API = '';
+
+  const STATUS_LABEL = {
+    new: 'Mới giao', accepted: 'Đã nhận', in_progress: 'Đang xử lý',
+    done: 'Hoàn thành', overdue: 'Quá hạn', rejected: 'Từ chối'
+  };
+  const PRIORITY_LABEL = { low: 'Thấp', normal: 'Bình thường', high: 'Cao' };
+
+  let departments = [];
+  let lastTasksById = {};
+
+  async function apiGet(url) {
+    const res = await fetch(API + url);
+    const json = await res.json();
+    if (!json.success) throw new Error(json.error);
+    return json.data;
+  }
+  async function apiSend(url, method, body) {
+    const res = await fetch(API + url, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: body ? JSON.stringify(body) : undefined
+    });
+    const json = await res.json();
+    if (!json.success) throw new Error(json.error);
+    return json.data;
+  }
+  async function apiSendForm(url, method, formData) {
+    const res = await fetch(API + url, { method, body: formData });
+    const json = await res.json();
+    if (!json.success) throw new Error(json.error);
+    return json.data;
+  }
+
+  // ---------- Departments ----------
+  async function loadDepartments() {
+    departments = await apiGet('/api/departments');
+    renderDeptList();
+    renderDeptSelect();
+  }
+
+  function renderDeptList() {
+    const el = document.getElementById('deptList');
+    if (departments.length === 0) {
+      el.innerHTML = '<div class="empty">Chưa có bộ phận nào.</div>';
+      return;
+    }
+    el.innerHTML = departments.map(d => `
+      <div class="dept-row">
+        <span>${escapeHtml(d.name)}</span>
+        <button class="btn-ghost" onclick="editDept(${d.id}, '${escapeAttr(d.name)}')">Sửa</button>
+        <button class="btn-danger" onclick="deleteDept(${d.id})">Xoá</button>
+      </div>
+    `).join('');
+  }
+
+  function renderDeptSelect() {
+    const el = document.getElementById('assigneeDept');
+    el.innerHTML = departments.map(d => `<option value="${escapeAttr(d.name)}">${escapeHtml(d.name)}</option>`).join('');
+  }
+
+  document.getElementById('addDeptBtn').addEventListener('click', async () => {
+    const input = document.getElementById('newDeptName');
+    const errEl = document.getElementById('deptErr');
+    errEl.textContent = '';
+    try {
+      await apiSend('/api/departments', 'POST', { name: input.value });
+      input.value = '';
+      await loadDepartments();
+    } catch (e) { errEl.textContent = e.message; }
+  });
+
+  window.editDept = async function (id, oldName) {
+    const name = prompt('Sửa tên bộ phận:', oldName);
+    if (name === null) return;
+    try {
+      await apiSend('/api/departments/' + id, 'PUT', { name });
+      await loadDepartments();
+      await loadTasks();
+    } catch (e) { alert(e.message); }
+  };
+
+  window.deleteDept = async function (id) {
+    if (!confirm('Xoá bộ phận này?')) return;
+    try {
+      await apiSend('/api/departments/' + id, 'DELETE');
+      await loadDepartments();
+    } catch (e) { alert(e.message); }
+  };
+
+  // ---------- Assignee type toggle ----------
+  document.querySelectorAll('input[name="assigneeType"]').forEach(radio => {
+    radio.addEventListener('change', () => {
+      const isDept = document.querySelector('input[name="assigneeType"]:checked').value === 'department';
+      document.getElementById('assigneePerson').style.display = isDept ? 'none' : 'block';
+      document.getElementById('assigneeDept').style.display = isDept ? 'block' : 'none';
+    });
+  });
+
+  // ---------- Tasks ----------
+  document.getElementById('createTaskBtn').addEventListener('click', async () => {
+    const errEl = document.getElementById('taskErr');
+    errEl.textContent = '';
+    const assigneeType = document.querySelector('input[name="assigneeType"]:checked').value;
+    const assigneeValue = assigneeType === 'department'
+      ? document.getElementById('assigneeDept').value
+      : document.getElementById('assigneePerson').value;
+
+    const linksText = document.getElementById('taskLinks').value;
+    const linksArr = linksText.split('\n').map(s => s.trim()).filter(Boolean).map(url => ({ url }));
+
+    const fd = new FormData();
+    fd.append('title', document.getElementById('taskTitle').value);
+    fd.append('description', document.getElementById('taskDesc').value);
+    fd.append('assigneeType', assigneeType);
+    fd.append('assigneeValue', assigneeValue);
+    fd.append('priority', document.getElementById('taskPriority').value);
+    fd.append('deadline', document.getElementById('taskDeadline').value || '');
+    fd.append('createdBy', document.getElementById('taskCreatedBy').value);
+    fd.append('sourceApp', 'TEST');
+    fd.append('links', JSON.stringify(linksArr));
+    const filesInput = document.getElementById('taskFiles');
+    Array.from(filesInput.files).forEach(f => fd.append('files', f));
+
+    try {
+      await apiSendForm('/api/tasks', 'POST', fd);
+      document.getElementById('taskTitle').value = '';
+      document.getElementById('taskDesc').value = '';
+      document.getElementById('assigneePerson').value = '';
+      document.getElementById('taskDeadline').value = '';
+      document.getElementById('taskLinks').value = '';
+      filesInput.value = '';
+      await loadTasks();
+    } catch (e) { errEl.textContent = e.message; }
+  });
+
+  document.getElementById('filterStatus').addEventListener('change', loadTasks);
+  document.getElementById('refreshBtn').addEventListener('click', loadTasks);
+
+  async function loadTasks() {
+    const status = document.getElementById('filterStatus').value;
+    const url = status ? `/api/tasks?status=${encodeURIComponent(status)}` : '/api/tasks';
+    const tasks = await apiGet(url);
+    renderTasks(tasks);
+  }
+
+  function renderTasks(tasks) {
+    lastTasksById = {};
+    tasks.forEach(t => { lastTasksById[t.id] = t; });
+    const body = document.getElementById('taskTableBody');
+    if (tasks.length === 0) {
+      body.innerHTML = '<tr><td colspan="6" class="empty">Chưa có công việc nào.</td></tr>';
+      return;
+    }
+    body.innerHTML = tasks.map(t => `
+      <tr>
+        <td>
+          <strong>${escapeHtml(t.title)}</strong>
+          ${t.description ? `<div style="font-size:12px; color:var(--ink-soft); margin-top:2px;">${escapeHtml(t.description)}</div>` : ''}
+          ${(t.attachments && t.attachments.length) || (t.links && t.links.length) ? `
+          <div style="font-size:11px; color:var(--navy-2); margin-top:4px;">
+            ${t.attachments && t.attachments.length ? `📎 ${t.attachments.length} file` : ''}
+            ${t.attachments && t.attachments.length && t.links && t.links.length ? '  ·  ' : ''}
+            ${t.links && t.links.length ? `🔗 ${t.links.length} link` : ''}
+          </div>` : ''}
+        </td>
+        <td>${t.assigneeType === 'department' ? '🏢 ' : '👤 '}${escapeHtml(t.assigneeValue)}</td>
+        <td class="priority-${t.priority}">${PRIORITY_LABEL[t.priority]}</td>
+        <td style="font-size:12px; line-height:1.6;">${timeInfoHtml(t)}</td>
+        <td><span class="badge badge-${t.status}">${STATUS_LABEL[t.status]}</span></td>
+        <td class="row-actions">${actionButtonsHtml(t)}</td>
+      </tr>
+    `).join('');
+  }
+
+  window.changeStatus = async function (id, status) {
+    if (!status) return;
+    try {
+      await apiSend(`/api/tasks/${id}/status`, 'PATCH', { status });
+      await loadTasks();
+    } catch (e) { alert(e.message); }
+  };
+
+  window.deleteTaskRow = async function (id) {
+    if (!confirm('Xoá công việc này?')) return;
+    try {
+      await apiSend('/api/tasks/' + id, 'DELETE');
+      await loadTasks();
+    } catch (e) { alert(e.message); }
+  };
+
+  function escapeHtml(s) { return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  function escapeAttr(s) { return (s || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;'); }
+
+  function formatDateTime(iso) {
+    if (!iso) return null;
+    const d = new Date(iso);
+    const pad = n => String(n).padStart(2, '0');
+    return `${pad(d.getDate())}/${pad(d.getMonth() + 1)} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+
+  function formatDuration(fromIso, toIso) {
+    if (!fromIso || !toIso) return null;
+    const ms = new Date(toIso) - new Date(fromIso);
+    if (ms < 0) return null;
+    const totalMin = Math.round(ms / 60000);
+    const h = Math.floor(totalMin / 60);
+    const m = totalMin % 60;
+    if (h === 0) return `${m} phút`;
+    return `${h} giờ ${m} phút`;
+  }
+
+  function timeInfoHtml(t) {
+    const lines = [];
+    if (t.deadline) lines.push(`<div>Hạn: <strong>${t.deadline}</strong></div>`);
+    lines.push(`<div style="color:var(--ink-soft);">Giao lúc: ${formatDateTime(t.createdAt)}</div>`);
+    if (t.status === 'new') {
+      // chỉ hiện thời điểm giao việc, chưa có mốc nào khác
+    } else if (t.status === 'accepted') {
+      lines.push(`<div style="color:var(--ink-soft);">Đã nhận: ${formatDateTime(t.acceptedAt)}</div>`);
+    } else if (t.status === 'in_progress') {
+      if (t.startedAt) lines.push(`<div style="color:var(--ink-soft);">Bắt đầu: ${formatDateTime(t.startedAt)}</div>`);
+    } else if (t.status === 'done') {
+      if (t.completedAt) lines.push(`<div style="color:var(--ok); font-weight:600;">Xong lúc: ${formatDateTime(t.completedAt)}</div>`);
+      const dur = formatDuration(t.startedAt || t.createdAt, t.completedAt);
+      if (dur) lines.push(`<div style="color:var(--ok);">⏱ Xử lý: ${dur}</div>`);
+    } else if (t.status === 'overdue') {
+      lines.push(`<div style="color:var(--danger); font-weight:600;">⚠ Đã quá hạn</div>`);
+    } else if (t.status === 'rejected') {
+      lines.push(`<div style="color:var(--ink-soft);">Đã từ chối</div>`);
+    }
+    return lines.join('');
+  }
+
+  function actionButtonsHtml(t) {
+    const btns = [];
+    if (t.status === 'new') {
+      btns.push(`<button class="btn-primary" onclick="openTaskDetail(${t.id}, 'accepted', '✅ Xác nhận nhận việc')">✅ Nhận việc</button>`);
+      btns.push(`<button class="btn-ghost" onclick="openTaskDetail(${t.id}, 'rejected', '✖ Xác nhận từ chối')">✖ Từ chối</button>`);
+    } else if (t.status === 'accepted') {
+      btns.push(`<button class="btn-primary" onclick="openTaskDetail(${t.id}, 'in_progress', '▶ Xác nhận bắt đầu làm')">▶ Bắt đầu làm</button>`);
+      btns.push(`<button class="btn-ghost" onclick="openTaskDetail(${t.id}, 'rejected', '✖ Xác nhận từ chối')">✖ Từ chối</button>`);
+    } else if (t.status === 'in_progress') {
+      btns.push(`<button class="btn-primary" onclick="openTaskDetail(${t.id}, 'done', '✔ Xác nhận hoàn thành')">✔ Hoàn thành</button>`);
+      btns.push(`<button class="btn-ghost" onclick="openTaskDetail(${t.id}, 'overdue', '⚠ Xác nhận đánh dấu quá hạn')">⚠ Quá hạn</button>`);
+    } else if (t.status === 'overdue') {
+      btns.push(`<button class="btn-primary" onclick="openTaskDetail(${t.id}, 'in_progress', '▶ Xác nhận tiếp tục làm')">▶ Tiếp tục làm</button>`);
+      btns.push(`<button class="btn-ghost" onclick="openTaskDetail(${t.id}, 'done', '✔ Xác nhận hoàn thành')">✔ Hoàn thành</button>`);
+    } else if (t.status === 'done') {
+      btns.push(`<button class="btn-ghost" onclick="openTaskDetail(${t.id}, 'in_progress', '↺ Xác nhận mở lại')">↺ Mở lại</button>`);
+    } else if (t.status === 'rejected') {
+      btns.push(`<button class="btn-ghost" onclick="openTaskDetail(${t.id}, 'new', '↺ Xác nhận giao lại')">↺ Giao lại</button>`);
+    }
+    btns.push(`<button class="btn-ghost" onclick="openTaskDetail(${t.id}, null, null)">👁 Xem</button>`);
+    btns.push(`<button class="btn-danger" onclick="deleteTaskRow(${t.id})">Xoá</button>`);
+    return btns.join('');
+  }
+
+  function formatFileSize(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  }
+
+  function renderAttachmentGroup(t, list, emptyText) {
+    if (list.length === 0) {
+      return `<div style="font-size:12px; color:var(--ink-soft); margin-bottom:10px;">${emptyText}</div>`;
+    }
+    return `<div style="margin-bottom:10px;">` + list.map(a => `
+      <div style="display:flex; align-items:center; justify-content:space-between; font-size:12.5px; padding:5px 0; border-bottom:1px solid var(--line);">
+        <span style="word-break:break-all;">📄 ${escapeHtml(a.originalName)} <span style="color:var(--ink-soft);">(${formatFileSize(a.size)})</span></span>
+        <span style="display:flex; gap:4px; flex-shrink:0;">
+          <button class="btn-ghost" style="padding:2px 8px; font-size:11px;" onclick="openPreview(${t.id}, '${a.id}')">👁 Xem</button>
+          <button class="btn-ghost" style="padding:2px 8px; font-size:11px;" onclick="openWithNativeApp(${t.id}, '${a.id}')" title="${window.electronAPI ? 'Mở bằng ứng dụng tương ứng trên máy (VD: Excel)' : 'Tải file về máy'}">${window.electronAPI ? '📂 Mở' : '⬇'}</button>
+          <button class="btn-ghost" style="padding:2px 8px; font-size:11px;" onclick="removeAttachmentRow(${t.id}, '${a.id}')">Xoá</button>
+        </span>
+      </div>
+    `).join('') + `</div>`;
+  }
+
+  // Ưu tiên mở trực tiếp bằng ứng dụng tương ứng trên máy (khi chạy trong app desktop/Electron);
+  // nếu mở bằng trình duyệt thường (không có electronAPI) thì tải file về như cách cũ.
+  window.openWithNativeApp = async function (taskId, attachmentId) {
+    const t = lastTasksById[taskId];
+    if (!t) return;
+    const a = (t.attachments || []).find(x => x.id === attachmentId);
+    if (!a) return;
+
+    if (window.electronAPI) {
+      const result = await window.electronAPI.openFile(a.storedName);
+      if (!result.success) alert('Không mở được file: ' + (result.error || 'Lỗi không xác định'));
+    } else {
+      window.location.href = a.url;
+    }
+  };
+
+  function renderAttachLinksSection(t) {
+    const attachments = t.attachments || [];
+    const originalFiles = attachments.filter(a => a.stage !== 'result');
+    const resultFiles = attachments.filter(a => a.stage === 'result');
+    const links = t.links || [];
+    let html = '';
+
+    html += `<div class="modal-desc-label" style="margin-top:4px;">📎 File đính kèm ban đầu</div>`;
+    html += renderAttachmentGroup(t, originalFiles, 'Chưa có file nào.');
+    html += `<div style="display:flex; gap:6px; margin-bottom:16px;">
+      <input type="file" id="mdNewFile" multiple style="flex:1;">
+      <button class="btn-ghost" onclick="uploadAttachmentRow(${t.id})">+ Thêm</button>
+    </div>`;
+
+    if (resultFiles.length > 0 || t.status === 'done') {
+      html += `<div class="modal-desc-label" style="color:var(--ok);">📤 File kết quả trả về</div>`;
+      html += renderAttachmentGroup(t, resultFiles, 'Chưa có file kết quả.');
+    }
+
+    html += `<div class="modal-desc-label">🔗 Liên kết</div>`;
+    if (links.length === 0) {
+      html += `<div style="font-size:12px; color:var(--ink-soft); margin-bottom:10px;">Chưa có link nào.</div>`;
+    } else {
+      html += `<div style="margin-bottom:10px;">` + links.map(l => `
+        <div style="display:flex; align-items:center; justify-content:space-between; font-size:12.5px; padding:5px 0; border-bottom:1px solid var(--line);">
+          <a href="${escapeAttr(l.url)}" target="_blank" rel="noopener" style="color:var(--navy-2); text-decoration:none; word-break:break-all;">🔗 ${escapeHtml(l.url)}</a>
+          <button class="btn-ghost" style="padding:2px 8px; font-size:11px;" onclick="removeLinkRow(${t.id}, '${l.id}')">Xoá</button>
+        </div>
+      `).join('') + `</div>`;
+    }
+    html += `<div style="display:flex; gap:6px; margin-bottom:16px;">
+      <input type="text" id="mdNewLink" placeholder="https://..." style="flex:1;">
+      <button class="btn-ghost" onclick="addLinkRow(${t.id})">+ Thêm</button>
+    </div>`;
+
+    document.getElementById('mdAttachLinks').innerHTML = html;
+  }
+
+  window.uploadAttachmentRow = async function (id) {
+    const input = document.getElementById('mdNewFile');
+    if (!input.files.length) return;
+    const fd = new FormData();
+    Array.from(input.files).forEach(f => fd.append('files', f));
+    try {
+      const updated = await apiSendForm(`/api/tasks/${id}/attachments`, 'POST', fd);
+      lastTasksById[id] = updated;
+      renderAttachLinksSection(updated);
+      await loadTasks();
+    } catch (e) { alert(e.message); }
+  };
+
+  window.removeAttachmentRow = async function (id, attachmentId) {
+    if (!confirm('Xoá file này?')) return;
+    try {
+      await apiSend(`/api/tasks/${id}/attachments/${attachmentId}`, 'DELETE');
+      const task = await apiGet(`/api/tasks/${id}`);
+      lastTasksById[id] = task;
+      renderAttachLinksSection(task);
+      await loadTasks();
+    } catch (e) { alert(e.message); }
+  };
+
+  // ---------- Xem trước file đính kèm ----------
+  const IMAGE_EXT = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'];
+  const TEXT_EXT = ['txt', 'csv', 'json', 'md', 'log'];
+  const EXCEL_EXT = ['xlsx', 'xls', 'xlsm'];
+
+  function getExt(name) {
+    const parts = name.split('.');
+    return parts.length > 1 ? parts.pop().toLowerCase() : '';
+  }
+
+  window.openPreview = async function (taskId, attachmentId) {
+    const t = lastTasksById[taskId];
+    if (!t) return;
+    const a = (t.attachments || []).find(x => x.id === attachmentId);
+    if (!a) return;
+
+    document.getElementById('pvTitle').textContent = a.originalName;
+    document.getElementById('pvDownloadLink').href = a.url;
+    const bodyEl = document.getElementById('pvBody');
+    bodyEl.innerHTML = `<div style="padding:30px; text-align:center; color:var(--ink-soft); font-size:13px;">Đang tải xem trước...</div>`;
+    document.getElementById('previewModal').classList.add('active');
+
+    const ext = getExt(a.originalName);
+    // File đã upload từ trước khi có field viewUrl vẫn xem được nhờ dùng tạm url tải làm nguồn xem trước
+    const viewSrc = a.viewUrl || a.url;
+
+    try {
+      if (IMAGE_EXT.includes(ext)) {
+        bodyEl.innerHTML = `<img src="${viewSrc}" style="max-width:100%; display:block; margin:0 auto;">`;
+      } else if (ext === 'pdf') {
+        bodyEl.innerHTML = `<iframe src="${viewSrc}" style="width:100%; height:65vh; border:none;"></iframe>`;
+      } else if (TEXT_EXT.includes(ext) && ext !== 'json') {
+        const res = await fetch(viewSrc);
+        if (!res.ok) throw new Error('Không tải được file (HTTP ' + res.status + ')');
+        const text = await res.text();
+        bodyEl.innerHTML = `<pre style="white-space:pre-wrap; font-size:12.5px; background:#F5F8FB; padding:12px; border-radius:6px; margin:0;">${escapeHtml(text)}</pre>`;
+      } else if (ext === 'json') {
+        const res = await fetch(viewSrc);
+        if (!res.ok) throw new Error('Không tải được file (HTTP ' + res.status + ')');
+        const text = await res.text();
+        let pretty = text;
+        try { pretty = JSON.stringify(JSON.parse(text), null, 2); } catch (e) {}
+        bodyEl.innerHTML = `<pre style="white-space:pre-wrap; font-size:12.5px; background:#F5F8FB; padding:12px; border-radius:6px; margin:0;">${escapeHtml(pretty)}</pre>`;
+      } else if (EXCEL_EXT.includes(ext)) {
+        if (typeof XLSX === 'undefined') {
+          bodyEl.innerHTML = `<div style="padding:20px; color:var(--ink-soft); font-size:13px;">Không tải được thư viện đọc Excel (cần kết nối internet). Vui lòng tải file về để xem.</div>`;
+          return;
+        }
+        const res = await fetch(viewSrc);
+        if (!res.ok) throw new Error('Không tải được file (HTTP ' + res.status + ')');
+        const buf = await res.arrayBuffer();
+        const wb = XLSX.read(buf, { type: 'array' });
+        const firstSheetName = wb.SheetNames[0];
+        const sheet = wb.Sheets[firstSheetName];
+        const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: '' });
+        const limitedRows = rows.slice(0, 200);
+        let tableHtml = `<div style="font-size:11.5px; color:var(--ink-soft); margin-bottom:8px;">Sheet: ${escapeHtml(firstSheetName)}${rows.length > 200 ? ` — hiển thị 200/${rows.length} dòng đầu` : ''}</div>`;
+        tableHtml += `<table style="border-collapse:collapse; font-size:12px; width:100%;">` +
+          limitedRows.map((row, ri) => `<tr>${row.map(cell => `<td style="border:1px solid var(--line); padding:4px 8px; ${ri === 0 ? 'font-weight:700; background:#F5F8FB;' : ''}">${escapeHtml(String(cell))}</td>`).join('')}</tr>`).join('') +
+          `</table>`;
+        bodyEl.innerHTML = tableHtml;
+      } else {
+        bodyEl.innerHTML = `<div style="padding:20px; color:var(--ink-soft); font-size:13px;">Không hỗ trợ xem trước loại file này (.${ext || '?'}). Vui lòng tải về để mở bằng ứng dụng tương ứng.</div>`;
+      }
+    } catch (e) {
+      bodyEl.innerHTML = `<div style="padding:20px; color:var(--danger); font-size:13px;">Lỗi khi xem trước: ${escapeHtml(e.message)}</div>`;
+    }
+  };
+
+  window.closePreview = function () {
+    document.getElementById('previewModal').classList.remove('active');
+    document.getElementById('pvBody').innerHTML = '';
+  };
+
+  window.addLinkRow = async function (id) {
+    const input = document.getElementById('mdNewLink');
+    const url = input.value.trim();
+    if (!url) return;
+    try {
+      const updated = await apiSend(`/api/tasks/${id}/links`, 'POST', { links: [{ url }] });
+      lastTasksById[id] = updated;
+      renderAttachLinksSection(updated);
+      await loadTasks();
+    } catch (e) { alert(e.message); }
+  };
+
+  window.removeLinkRow = async function (id, linkId) {
+    try {
+      const updated = await apiSend(`/api/tasks/${id}/links/${linkId}`, 'DELETE');
+      lastTasksById[id] = updated;
+      renderAttachLinksSection(updated);
+      await loadTasks();
+    } catch (e) { alert(e.message); }
+  };
+
+  window.openTaskDetail = function (id, nextStatus, confirmLabel) {
+    const t = lastTasksById[id];
+    if (!t) return;
+    document.getElementById('mdTitle').textContent = t.title;
+    document.getElementById('mdMeta').textContent =
+      `${t.assigneeType === 'department' ? '🏢 Bộ phận' : '👤 Người nhận'}: ${t.assigneeValue}  ·  Ưu tiên: ${PRIORITY_LABEL[t.priority]}`;
+    document.getElementById('mdDesc').textContent = t.description && t.description.trim() ? t.description : '(Không có mô tả)';
+    document.getElementById('mdInfoGrid').innerHTML = `
+      <div><span>Người giao</span>${escapeHtml(t.createdBy || '—')}</div>
+      <div><span>Hạn xử lý</span>${t.deadline || '—'}</div>
+      <div><span>Giao lúc</span>${formatDateTime(t.createdAt) || '—'}</div>
+      <div><span>Trạng thái hiện tại</span>${STATUS_LABEL[t.status]}</div>
+    `;
+    renderAttachLinksSection(t);
+
+    const completeBoxEl = document.getElementById('mdCompleteBox');
+    const actionsEl = document.getElementById('mdActions');
+    let actionsHtml = '';
+
+    if (nextStatus === 'done') {
+      // Hoàn thành bắt buộc nộp kèm file kết quả — không cho xác nhận tới khi đã chọn file
+      completeBoxEl.style.display = 'block';
+      completeBoxEl.innerHTML = `
+        <div class="modal-desc-label">📤 File kết quả trả về (bắt buộc)</div>
+        <input type="file" id="mdCompleteFiles" multiple onchange="document.getElementById('mdCompleteConfirmBtn').disabled = this.files.length === 0;">
+      `;
+      actionsHtml += `<button class="btn-primary" id="mdCompleteConfirmBtn" disabled onclick="confirmComplete(${t.id})">${confirmLabel}</button>`;
+    } else {
+      completeBoxEl.style.display = 'none';
+      completeBoxEl.innerHTML = '';
+      if (nextStatus && confirmLabel) {
+        actionsHtml += `<button class="btn-primary" onclick="confirmTaskAction(${t.id}, '${nextStatus}')">${confirmLabel}</button>`;
+      }
+    }
+    actionsHtml += `<button class="btn-ghost" onclick="closeTaskDetail()">Đóng</button>`;
+    actionsEl.innerHTML = actionsHtml;
+    document.getElementById('taskDetailModal').classList.add('active');
+  };
+
+  window.closeTaskDetail = function () {
+    document.getElementById('taskDetailModal').classList.remove('active');
+  };
+
+  window.confirmTaskAction = async function (id, status) {
+    await changeStatus(id, status);
+    closeTaskDetail();
+  };
+
+  window.confirmComplete = async function (id) {
+    const filesInput = document.getElementById('mdCompleteFiles');
+    if (!filesInput.files.length) return;
+    const fd = new FormData();
+    Array.from(filesInput.files).forEach(f => fd.append('files', f));
+    try {
+      await apiSendForm(`/api/tasks/${id}/complete`, 'POST', fd);
+      closeTaskDetail();
+      await loadTasks();
+    } catch (e) { alert(e.message); }
+  };
+
+  (async function init() {
+    await loadDepartments();
+    await loadTasks();
+  })();
+</script>
+  <!-- MODAL XEM CHI TIẾT CÔNG VIỆC TRƯỚC KHI XÁC NHẬN -->
+  <div id="taskDetailModal" class="modal-overlay">
+    <div class="modal-card">
+      <h3 id="mdTitle"></h3>
+      <div class="modal-meta" id="mdMeta"></div>
+      <div class="modal-desc-label">Mô tả công việc</div>
+      <div class="modal-desc-box" id="mdDesc"></div>
+      <div class="modal-info-grid" id="mdInfoGrid"></div>
+      <div id="mdAttachLinks"></div>
+      <div id="mdCompleteBox" style="display:none; margin-bottom:16px;"></div>
+      <div class="modal-actions" id="mdActions"></div>
+    </div>
+  </div>
+
+  <!-- MODAL XEM TRƯỚC FILE -->
+  <div id="previewModal" class="modal-overlay">
+    <div class="modal-card" style="max-width:720px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+        <h3 id="pvTitle" style="margin:0;"></h3>
+        <button class="btn-ghost" onclick="closePreview()">✕ Đóng</button>
+      </div>
+      <div id="pvBody" style="max-height:70vh; overflow:auto;"></div>
+      <div style="margin-top:14px; text-align:right;">
+        <a id="pvDownloadLink" href="#" class="btn-primary" style="display:inline-block; text-decoration:none; padding:8px 14px; border-radius:6px; font-size:13px; font-weight:600;">⬇ Tải file này về máy</a>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>

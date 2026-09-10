@@ -1,0 +1,42 @@
+{
+  "name": "tasks-app",
+  "version": "1.0.0",
+  "description": "App desktop giao việc giữa các bộ phận (Electron) - độc lập, sau này liên kết với HUB & MG / GASKET",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "server-only": "node server.js",
+    "dist": "electron-builder"
+  },
+  "dependencies": {
+    "adm-zip": "^0.6.0",
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "multer": "^2.3.0"
+  },
+  "devDependencies": {
+    "electron": "^32.0.0",
+    "electron-builder": "^25.0.0"
+  },
+  "build": {
+    "appId": "com.dung.tasksapp",
+    "productName": "Giao Viec App",
+    "files": [
+      "main.js",
+      "preload.js",
+      "server.js",
+      "database.js",
+      "index.html",
+      "node_modules/**/*"
+    ],
+    "win": {
+      "target": "nsis"
+    },
+    "mac": {
+      "target": "dmg"
+    },
+    "linux": {
+      "target": "AppImage"
+    }
+  }
+}
